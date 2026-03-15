@@ -1,0 +1,32 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Office lock files
+~$*.pptx
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Rendered slides (regenerable from pptx)
+renders/
+
+# Images (embedded in deck files)
+images/
+
+# Design artifacts
+design/
+
+# Deck files (too large for GitHub, backed up elsewhere)
+*.pptx
+*.pptx.bak
+output/*.pdf
+workers/backups/
+
+# Company-specific / sensitive content
+BRAND_GUIDE.md
+Brand Book 2026.pdf
+DECK_REVIEW.md
