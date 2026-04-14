@@ -65,9 +65,6 @@ WORKER_ID=C claude --dangerously-skip-permissions
 
 > `--dangerously-skip-permissions` lets the worker edit files and run commands without asking you to approve each one. This is safe here because workers only touch their own `worker_X.pptx` file.
 
-**After launching**, rename the tab manually in your terminal app:
-- **iTerm2**: `⌘ + Shift + I`, or right-click the tab → "Edit Tab Title" → type "Worker A" and check "Lock"
-- **Terminal.app**: Shell menu → Edit Window Title
 
 **Step 3: Prompt each worker instance**
 
