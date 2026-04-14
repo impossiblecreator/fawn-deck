@@ -7,6 +7,8 @@ Commands:
     python slide_manager.py clean                                   # Physically remove cut slides from output deck
     python slide_manager.py add-slide                               # Append 1 blank slide to source + all worker files
     python slide_manager.py add-slide 3                             # Append 3 blank slides
+    python slide_manager.py add-slide --after 5                     # Insert 1 blank slide after slide 5 (becomes slide 6)
+    python slide_manager.py add-slide 3 --after 5                   # Insert 3 blank slides after slide 5 (become slides 6-8)
     python slide_manager.py add-slide --bg 255,255,255             # Append with custom background
     python slide_manager.py new                                     # Create blank 20-slide source deck (16:9, cream bg)
     python slide_manager.py new --slides 15                         # 15 blank slides
@@ -235,16 +237,26 @@ def cmd_clean():
     print(f"\nReview the deck, then run 'python3 slide_manager.py promote'.")
 
 
-def cmd_add_slide(count=1, bg_rgb=None):
-    """Append blank slide(s) to the source deck and all worker files.
+def cmd_add_slide(count=1, bg_rgb=None, after=None):
+    """Append or insert blank slide(s) to the source deck and all worker files.
 
-    Slides are always appended at the end to avoid renumbering existing assignments.
-    After adding, assign the new slide(s) to a worker and run 'render' to verify.
+    When --after N is given, slides are inserted after position N in every file
+    and assignments/cuts are renumbered so existing references stay correct.
+    Without --after, slides are appended at the end (no renumbering needed).
 
-    count:   number of slides to append (default 1)
+    count:   number of slides to add (default 1)
     bg_rgb:  background colour tuple, defaults to matching the last slide's background
+    after:   insert after this slide number (0 = beginning, None = append at end)
     """
     from pptx.dml.color import RGBColor
+
+    # Block if any workers have unsaved changes (files differ from source)
+    changed = _workers_with_changes()
+    if changed:
+        names = ", ".join(f"Worker {n}" for n in changed)
+        print(f"  ERROR: Work is in progress ({names} have unsaved changes).")
+        print(f"  Merge their slides and run 'promote' + 'setup' first, then try again.")
+        return
 
     files = [SOURCE] + [
         f"{WORKERS_DIR}/worker_{name}.pptx"
@@ -253,6 +265,14 @@ def cmd_add_slide(count=1, bg_rgb=None):
     ]
     if os.path.exists(f"{OUTPUT_DIR}/deck_final.pptx"):
         files.append(f"{OUTPUT_DIR}/deck_final.pptx")
+
+    # Validate --after against the source deck
+    if after is not None:
+        source_prs = Presentation(SOURCE)
+        total_before = len(source_prs.slides)
+        if after < 0 or after > total_before:
+            print(f"  ERROR: --after {after} is out of range. Deck has {total_before} slides (use 0–{total_before}).")
+            return
 
     new_slide_nums = []
 
@@ -286,13 +306,49 @@ def cmd_add_slide(count=1, bg_rgb=None):
             fill.solid()
             fill.fore_color.rgb = RGBColor(*fill_rgb)
 
+        # Move appended slides to the target position
+        if after is not None and after < len(prs.slides) - count:
+            xml_slides = prs.slides._sldIdLst
+            new_elements = []
+            for _ in range(count):
+                el = xml_slides[-1]
+                xml_slides.remove(el)
+                new_elements.append(el)
+            new_elements.reverse()
+            for i, el in enumerate(new_elements):
+                xml_slides.insert(after + i, el)
+
         total = len(prs.slides)
         if filepath == SOURCE:
-            new_slide_nums = list(range(total - count + 1, total + 1))
+            if after is not None:
+                new_slide_nums = list(range(after + 1, after + count + 1))
+            else:
+                new_slide_nums = list(range(total - count + 1, total + 1))
 
         prs.save(filepath)
         label = os.path.relpath(filepath, WORKSPACE)
         print(f"  Updated {label} → now {total} slides")
+
+    # Renumber assignments and cuts when inserting (not appending)
+    if after is not None:
+        assignments = load_assignments()
+        changed = False
+        for name in assignments:
+            old_slides = assignments[name]["slides"]
+            new_slides = sorted(s + count if s > after else s for s in old_slides)
+            if new_slides != old_slides:
+                assignments[name]["slides"] = new_slides
+                changed = True
+        if changed:
+            save_assignments(assignments)
+            print(f"  Renumbered assignments (slides > {after} shifted by +{count})")
+
+        cuts = load_cuts()
+        if cuts:
+            new_cuts = {s + count if s > after else s for s in cuts}
+            if new_cuts != cuts:
+                save_cuts(new_cuts)
+                print(f"  Renumbered cuts (slides > {after} shifted by +{count})")
 
     print(f"\nNew slide(s): {new_slide_nums}")
     print(f"Assign with: python3 slide_manager.py assign <worker> {' '.join(str(n) for n in new_slide_nums)}")
@@ -1057,16 +1113,20 @@ if __name__ == "__main__":
         args = sys.argv[2:]
         count = 1
         bg_rgb = None
+        after = None
         i = 0
         while i < len(args):
             if args[i] == "--bg" and i + 1 < len(args):
                 bg_rgb = tuple(int(x) for x in args[i + 1].split(","))
                 i += 2
+            elif args[i] == "--after" and i + 1 < len(args):
+                after = int(args[i + 1])
+                i += 2
             elif args[i].isdigit():
                 count = int(args[i]); i += 1
             else:
                 print(f"Unknown option: {args[i]}"); sys.exit(1)
-        cmd_add_slide(count=count, bg_rgb=bg_rgb)
+        cmd_add_slide(count=count, bg_rgb=bg_rgb, after=after)
     elif cmd == "new":
         # Parse optional --key value flags
         args = sys.argv[2:]

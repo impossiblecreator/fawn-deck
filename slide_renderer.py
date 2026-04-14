@@ -85,11 +85,13 @@ def _render_with_libreoffice(pptx_path, slide_num, output_path):
         wait_seconds = 10
         result = None
         for attempt in range(1, max_attempts + 1):
-            check = subprocess.run(["pgrep", "-x", "soffice"], capture_output=True)
-            if check.returncode == 0:
-                print(f"  LibreOffice busy (another worker rendering) — waiting {wait_seconds}s... (attempt {attempt}/{max_attempts})")
-                time.sleep(wait_seconds)
-                continue
+            # Check if LibreOffice is running (skip if pgrep unavailable)
+            if _has_tool("pgrep"):
+                check = subprocess.run(["pgrep", "-x", "soffice"], capture_output=True)
+                if check.returncode == 0:
+                    print(f"  LibreOffice busy (another worker rendering) — waiting {wait_seconds}s... (attempt {attempt}/{max_attempts})")
+                    time.sleep(wait_seconds)
+                    continue
             result = subprocess.run(
                 ["soffice", "--headless", "--norestore", "--convert-to", "pdf",
                  "--outdir", tmpdir, os.path.abspath(pptx_path)],

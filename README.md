@@ -48,52 +48,25 @@ python3 slide_manager.py assign C 9 10 11 12
 ```
 Each slide can only be assigned to one worker. Conflicts are rejected.
 
-**Step 2: Open a terminal per worker and launch Claude Code**
+**Step 2: Launch workers**
 
-Open three separate terminal tabs or windows. In each one, launch Claude Code with a different `WORKER_ID`:
+There are two ways to launch workers. Both do the same thing — open Terminal tabs and start the AI workers automatically. The difference is safety.
 
+**Option A: Simple launch** — faster, no extra setup required.
 ```bash
-# Terminal 1 — Worker A
-WORKER_ID=A claude --dangerously-skip-permissions
-
-# Terminal 2 — Worker B
-WORKER_ID=B claude --dangerously-skip-permissions
-
-# Terminal 3 — Worker C
-WORKER_ID=C claude --dangerously-skip-permissions
+./launch_workers.sh              # Launch all workers (A, B, C)
+./launch_workers.sh A B          # Launch specific workers
 ```
+The AI workers run directly on your computer. They're instructed to only edit their own slide files, and in practice they do. But there's nothing physically stopping them from touching other files on your machine if something goes wrong.
 
-> `--dangerously-skip-permissions` lets the worker edit files and run commands without asking you to approve each one. This is safe here because workers only touch their own `worker_X.pptx` file.
-
-
-**Step 3: Prompt each worker instance**
-
-Paste this into each Claude Code session:
-
+**Option B: Sandboxed launch** — requires [Docker Desktop](https://www.docker.com/products/docker-desktop/) to be installed and running.
+```bash
+./claude-vm/run-claude.sh        # Launch all workers (A, B, C)
+./claude-vm/run-claude.sh A B    # Launch specific workers
 ```
-You are a slide designer working on a PowerPoint deck.
+Each AI worker runs in an isolated container — think of it like a separate mini-computer that can only see the project folder. Even if a worker tries to do something unexpected, it physically cannot access your other files, apps, or data. This is the safer option if you're not comfortable giving AI agents free rein on your machine.
 
-Start by running:
-  python3 slide_manager.py whoami
-
-This will show your worker letter, your working file, and your assigned slides.
-Do not guess your identity — whoami is the source of truth.
-
-If you have a BRAND_GUIDE.md, read it fully before touching any slide.
-
-For EACH slide, follow this design loop:
-  a. Render the current slide and audit it in writing
-  b. Write a Design Brief (layout, reading order, element positions) — NO CODE YET
-  c. Only after the brief is written, implement with python-pptx
-  d. Render, compare against the brief, iterate until 8/10
-
-Do not skip the brief step. Slides without a written brief before coding are not acceptable.
-
-When finished, merge ONLY your assigned slides using the exact command whoami printed:
-  python3 slide_manager.py merge [your slide numbers]
-```
-
-**Step 4: Merge when all workers are done (coordinator)**
+**Step 3: Merge when all workers are done (coordinator)**
 ```bash
 python3 slide_manager.py merge
 # → output/deck_final.pptx
@@ -127,6 +100,15 @@ python3 slide_manager.py merge 5 8 14
 ```
 Unspecified slides are taken from the source deck unchanged.
 
+### Add Slides
+Add blank slides to all files at once. Without `--after`, slides are appended at the end. With `--after N`, the slide is inserted after slide N and all assignments are renumbered automatically:
+```bash
+python3 slide_manager.py add-slide              # Append 1 blank slide
+python3 slide_manager.py add-slide --after 5    # Insert after slide 5 (becomes slide 6)
+python3 slide_manager.py add-slide 3 --after 5  # Insert 3 slides after slide 5
+```
+This command is blocked if any workers have unsaved changes — merge, promote, and setup first.
+
 ### Promote
 After reviewing the merged deck, promote it to become the new source of truth:
 ```bash
@@ -142,6 +124,10 @@ python3 slide_manager.py setup
 
 ```
 fawn-deck/
+├── launch_workers.sh      # Launch workers locally (no sandbox)
+├── worker_prompt.md       # Initial prompt sent to each worker
+├── claude-vm/
+│   └── run-claude.sh      # Launch workers in Docker (sandboxed)
 ├── slide_manager.py       # Coordination tool
 ├── slide_renderer.py      # PNG renderer
 ├── assignments.json       # Worker assignments (auto-managed)
