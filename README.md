@@ -8,14 +8,14 @@ If you want to make manual edits, open the worker deck and make the edits yourse
 
 ## Dependencies
 
-**Python packages:**
+**Python 3.7+** and these packages:
 ```bash
 pip install -r requirements.txt
 ```
 
 **System dependencies:**
-- [LibreOffice](https://www.libreoffice.org/) — used to render slides to PNG
-- `pdftoppm` (from [Poppler](https://poppler.freedesktop.org/)) — used in the render pipeline
+- [LibreOffice](https://www.libreoffice.org/) — renders slides to PNG
+- `pdftoppm` (from [Poppler](https://poppler.freedesktop.org/)) — part of the render pipeline
 
 On macOS:
 ```bash
@@ -46,10 +46,11 @@ python3 slide_manager.py assign A 1 2 3 4
 python3 slide_manager.py assign B 5 6 7 8
 python3 slide_manager.py assign C 9 10 11 12
 ```
+Each slide can only be assigned to one worker. Conflicts are rejected.
 
 **Step 2: Open a terminal per worker and launch Claude Code**
 
-Claude Code overwrites the terminal title with "Claude Code" on startup, so the tab must be renamed **after** launch.
+Open three separate terminal tabs or windows. In each one, launch Claude Code with a different `WORKER_ID`:
 
 ```bash
 # Terminal 1 — Worker A
@@ -61,6 +62,8 @@ WORKER_ID=B claude --dangerously-skip-permissions
 # Terminal 3 — Worker C
 WORKER_ID=C claude --dangerously-skip-permissions
 ```
+
+> `--dangerously-skip-permissions` lets the worker edit files and run commands without asking you to approve each one. This is safe here because workers only touch their own `worker_X.pptx` file.
 
 **After launching**, rename the tab manually in your terminal app:
 - **iTerm2**: `⌘ + Shift + I`, or right-click the tab → "Edit Tab Title" → type "Worker A" and check "Lock"
@@ -101,45 +104,30 @@ python3 slide_manager.py merge
 
 ---
 
-## Commands
+## Command Reference
 
-### Status
-See all slide assignments and which workers have files:
+Commands not covered in the walkthrough above.
+
+### Check Status
 ```bash
-python3 slide_manager.py status
+python3 slide_manager.py status        # All slide assignments and worker files
 ```
-
-### Assign Slides
-Assign one or more slides to a worker (A, B, or C):
-```bash
-python3 slide_manager.py assign A 4 5 10
-python3 slide_manager.py assign B 1 2 3
-python3 slide_manager.py assign C 7 8 9
-```
-
-Each slide can only be assigned to one worker. Conflicts are rejected.
 
 ### Unassign Slides
-Remove slides from a worker's assignment:
 ```bash
 python3 slide_manager.py unassign A 10
 ```
 
 ### Render a Worker's Slides
-Render all slides assigned to a worker. Slides save to `renders/worker_A/` and Finder opens automatically:
+Renders all slides assigned to a worker. Output goes to `renders/worker_A/` and Finder opens automatically:
 ```bash
 python3 slide_manager.py render A
-# → renders/worker_A/slide_5.png, slide_6.png, ...
 ```
 
-### Merge
-Once workers are done, merge all changes into a single output deck:
+### Merge Specific Slides
 ```bash
-python3 slide_manager.py merge                # merge all assigned slides
-python3 slide_manager.py merge 5 8 14         # merge only slides 5, 8, and 14
-# → output/deck_final.pptx
+python3 slide_manager.py merge 5 8 14
 ```
-
 Unspecified slides are taken from the source deck unchanged.
 
 ### Promote
@@ -152,27 +140,6 @@ python3 slide_manager.py promote
 # Then refresh all worker files from the new source:
 python3 slide_manager.py setup
 ```
-
-## Rendering Individual Slides
-
-Workers can render a single slide directly. The output path is inferred automatically from the pptx filename — no need to specify it:
-
-```python
-from slide_renderer import render_slide, render_slides
-
-# Single slide → renders/worker_A/slide_5.png  (auto-inferred, always overwrites)
-render_slide('workers/worker_A.pptx', slide_num=5)
-
-# Multiple slides → renders/worker_A/slide_4.png, slide_5.png, slide_6.png
-render_slides('workers/worker_A.pptx', slides=[4, 5, 6])
-```
-
-Or from the command line:
-```bash
-python3 slide_renderer.py workers/worker_A.pptx 5
-```
-
-Rendering requires LibreOffice + pdftoppm (see Dependencies above).
 
 ## File Structure
 
@@ -195,10 +162,3 @@ fawn-deck/
 └── output/
     └── deck_final.pptx    # Merged result
 ```
-
-## Worker Rules
-
-- Each worker edits **only their assigned slides** in their own worker file
-- Always render and visually verify a slide before marking it done
-- Follow the design system in your `BRAND_GUIDE.md` — fonts, colors, spacing
-- The coordinator runs `merge` when all workers are finished
