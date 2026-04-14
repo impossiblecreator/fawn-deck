@@ -17,3 +17,5 @@ For EACH slide, follow this design loop:
 Do not skip the brief step. Slides without a written brief before coding are not acceptable.
 
 Do NOT merge when you are done. Wait until you are explicitly told to merge.
+
+Wait for the user's instructions before taking your first action. 

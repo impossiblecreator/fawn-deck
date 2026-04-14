@@ -1,10 +1,141 @@
 # Fawn Friends Deck — Multi-Worker Slide Design
 
-I was using an AI deck building product and was frustrated with how slow the process was. So, I created an orchestrator that allows me to build slides with three agents at once. Much faster. 
+I was using an AI deck building product and was frustrated with how slow the process was. So, I created an orchestrator that allows me to build slides with three agents at once. Much faster.
 
-This repo manages conflicts by creating three worker powerpoint decks from a source deck. You assign slides to each worker and work on the slides. When you're done for the time being, you merge the slides into the final deck and then promote the final deck. When you want to start building again, run `setup` to reset the worker decks with the current final deck.
+---
 
-If you want to make manual edits, open the worker deck and make the edits yourself. 
+## Command Reference
+
+```bash
+python3 slide_manager.py status              # All slide assignments and worker files
+python3 slide_manager.py assign A 1 2 3      # Assign slides to a worker
+python3 slide_manager.py unassign A 10       # Remove a slide assignment
+python3 slide_manager.py merge               # Merge all assigned slides
+python3 slide_manager.py merge 5 8 14        # Merge specific slides only
+python3 slide_manager.py promote             # Promote final deck to source (validates first)
+python3 slide_manager.py setup               # Refresh worker files from source (validates first)
+python3 slide_manager.py render A            # Render Worker A's slides to PNG (opens Finder)
+python3 slide_manager.py validate            # Manually validate output/deck_final.pptx
+python3 slide_manager.py add-slide           # Append a blank slide to all files
+python3 slide_manager.py add-slide --after 5 # Insert a blank slide after slide 5
+python3 slide_manager.py whoami              # Show this worker's identity and assignments
+```
+
+`add-slide` is blocked if any workers have unsaved changes — merge, promote, and setup first.
+
+---
+
+## How It Works
+
+Instead of one AI working on slides one at a time, this system splits the deck across three AI workers running in parallel — each in its own terminal window, each responsible for a different set of slides. When they're done, you merge everything back into a single deck.
+
+The source deck is never edited directly. At the start of each round, each worker gets their own copy of the deck to work in. They make their changes, you merge those changes in, and then the merged deck becomes the new source for the next round.
+
+Here's the full cycle:
+
+**Setup** — Before the first round, you copy your deck into the project and run setup. This creates three worker copies of the deck, one per AI.
+```bash
+cp your_deck.pptx source/deck_original.pptx
+python3 slide_manager.py setup
+```
+
+**Assign** — You tell the system which slides each worker is responsible for. A slide can only belong to one worker, so there are no conflicts.
+```bash
+python3 slide_manager.py assign A 1 2 3 4
+python3 slide_manager.py assign B 5 6 7 8
+python3 slide_manager.py assign C 9 10 11 12
+```
+
+**Launch** — You start the three AI workers. Each one reads your brand guide and slide assignments, then gets to work on its own copy of the deck.
+```bash
+./launch_workers.sh          # local
+./claude-vm/run-claude.sh    # sandboxed in Docker
+```
+
+**Merge** — When the workers are done, you merge their slides back into the output deck. The system validates the result automatically — if anything is broken, the merge is blocked and you get a clear error message. The worker files are never touched by a merge, so you can fix and re-merge safely.
+```bash
+python3 slide_manager.py merge
+```
+
+**Promote** — Once you're happy with the merged deck, you promote it to become the new source. The system validates the deck before promoting, so a corrupted file can never overwrite your source.
+```bash
+python3 slide_manager.py promote
+```
+
+**Setup again** — To start a new round of editing, you run setup again. This refreshes all three worker files from the newly promoted source, validates the source first, and backs up the old worker files before overwriting them.
+```bash
+python3 slide_manager.py setup
+```
+
+---
+
+## First-Time Setup
+
+Copy your deck into place, then create the three worker files:
+
+```bash
+cp your_deck.pptx source/deck_original.pptx
+python3 slide_manager.py setup
+```
+
+Create a `BRAND_GUIDE.md` in the project root with your fonts, colors, and design rules. Workers will read it before editing any slide.
+
+---
+
+## Each Editing Round
+
+**1. Assign slides to workers**
+
+Decide which slides each worker will handle and register the assignments. Each slide can only go to one worker — the system will reject any conflicts.
+
+```bash
+python3 slide_manager.py assign A 1 2 3 4
+python3 slide_manager.py assign B 5 6 7 8
+python3 slide_manager.py assign C 9 10 11 12
+```
+
+**2. Launch the workers**
+
+This opens terminal tabs and starts the AI workers — one per worker ID. Each worker reads the brand guide and their assignments, then edits only their own slides in their own file.
+
+```bash
+./launch_workers.sh          # Launch all workers (A, B, C)
+./launch_workers.sh A B      # Launch specific workers only
+```
+
+For a sandboxed option where each worker runs in an isolated Docker container and physically cannot access anything outside the project folder:
+
+```bash
+./claude-vm/run-claude.sh        # Launch all workers sandboxed
+./claude-vm/run-claude.sh A B    # Launch specific workers sandboxed
+```
+
+**3. Merge when workers are done**
+
+This pulls each worker's assigned slides into the output deck. Validation runs automatically — if the result has broken references, missing images, or structural errors, you'll get a clear error message and the merge is blocked. Fix the issue in the worker file and re-merge.
+
+```bash
+python3 slide_manager.py merge
+# → output/deck_final.pptx
+```
+
+**4. Review and promote**
+
+Open `output/deck_final.pptx` and check the result. When you're happy, promote it to become the new source. The system validates the deck before doing anything — if validation fails, the promotion is blocked and your source is left untouched.
+
+```bash
+python3 slide_manager.py promote
+```
+
+**5. Set up for the next round**
+
+This refreshes the three worker files from the newly promoted source, ready for the next round of editing. The source is validated before copying, and existing worker files are backed up automatically.
+
+```bash
+python3 slide_manager.py setup
+```
+
+---
 
 ## Dependencies
 
@@ -23,102 +154,7 @@ brew install --cask libreoffice
 brew install poppler
 ```
 
-## Setup
-
-Copy your source deck into place, then initialize worker files:
-
-```bash
-cp your_deck.pptx source/deck_original.pptx
-python3 slide_manager.py setup
-```
-
-This creates `workers/worker_A.pptx`, `worker_B.pptx`, and `worker_C.pptx` — each a full copy of the source deck.
-
-**Create a brand guide** — add a `BRAND_GUIDE.md` to the project root with your design system: fonts, colors, spacing rules, and a design loop for workers to follow. Workers will reference this before editing any slide.
-
-## Launching Workers
-
-Workers are Claude Code instances — one per terminal, each with a different `WORKER_ID`.
-
-**Step 1: Assign slides (coordinator)**
-```bash
-python3 slide_manager.py assign A 1 2 3 4
-python3 slide_manager.py assign B 5 6 7 8
-python3 slide_manager.py assign C 9 10 11 12
-```
-Each slide can only be assigned to one worker. Conflicts are rejected.
-
-**Step 2: Launch workers**
-
-There are two ways to launch workers. Both do the same thing — open Terminal tabs and start the AI workers automatically. The difference is safety.
-
-**Option A: Simple launch** — faster, no extra setup required.
-```bash
-./launch_workers.sh              # Launch all workers (A, B, C)
-./launch_workers.sh A B          # Launch specific workers
-```
-The AI workers run directly on your computer. They're instructed to only edit their own slide files, and in practice they do. But there's nothing physically stopping them from touching other files on your machine if something goes wrong.
-
-**Option B: Sandboxed launch** — requires [Docker Desktop](https://www.docker.com/products/docker-desktop/) to be installed and running.
-```bash
-./claude-vm/run-claude.sh        # Launch all workers (A, B, C)
-./claude-vm/run-claude.sh A B    # Launch specific workers
-```
-Each AI worker runs in an isolated container — think of it like a separate mini-computer that can only see the project folder. Even if a worker tries to do something unexpected, it physically cannot access your other files, apps, or data. This is the safer option if you're not comfortable giving AI agents free rein on your machine.
-
-**Step 3: Merge when all workers are done (coordinator)**
-```bash
-python3 slide_manager.py merge
-# → output/deck_final.pptx
-```
-
 ---
-
-## Command Reference
-
-Commands not covered in the walkthrough above.
-
-### Check Status
-```bash
-python3 slide_manager.py status        # All slide assignments and worker files
-```
-
-### Unassign Slides
-```bash
-python3 slide_manager.py unassign A 10
-```
-
-### Render a Worker's Slides
-Renders all slides assigned to a worker. Output goes to `renders/worker_A/` and Finder opens automatically:
-```bash
-python3 slide_manager.py render A
-```
-
-### Merge Specific Slides
-```bash
-python3 slide_manager.py merge 5 8 14
-```
-Unspecified slides are taken from the source deck unchanged.
-
-### Add Slides
-Add blank slides to all files at once. Without `--after`, slides are appended at the end. With `--after N`, the slide is inserted after slide N and all assignments are renumbered automatically:
-```bash
-python3 slide_manager.py add-slide              # Append 1 blank slide
-python3 slide_manager.py add-slide --after 5    # Insert after slide 5 (becomes slide 6)
-python3 slide_manager.py add-slide 3 --after 5  # Insert 3 slides after slide 5
-```
-This command is blocked if any workers have unsaved changes — merge, promote, and setup first.
-
-### Promote
-After reviewing the merged deck, promote it to become the new source of truth:
-```bash
-python3 slide_manager.py promote
-# Backs up source/deck_original.pptx → source/deck_original.bak.pptx
-# Copies output/deck_final.pptx → source/deck_original.pptx
-
-# Then refresh all worker files from the new source:
-python3 slide_manager.py setup
-```
 
 ## File Structure
 
@@ -130,6 +166,7 @@ fawn-deck/
 │   └── run-claude.sh      # Launch workers in Docker (sandboxed)
 ├── slide_manager.py       # Coordination tool
 ├── slide_renderer.py      # PNG renderer
+├── pptx_safe_ops.py       # Validation and rollback pipeline
 ├── assignments.json       # Worker assignments (auto-managed)
 ├── BRAND_GUIDE.md         # Your design system and style rules (create this)
 ├── source/

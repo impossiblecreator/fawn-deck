@@ -395,13 +395,27 @@ def cmd_new(num_slides=20, bg_rgb=(241, 237, 229), width_in=13.33, height_in=7.5
 def cmd_setup():
     """Create worker copies from the source deck.
 
+    Validates the source deck before copying — refuses if validation fails.
     If any worker files already exist, they are backed up to
     workers/backups/YYYYMMDD_HHMMSS/ before being overwritten.
     """
+    from pptx_safe_ops import validate_deck
+
     if not os.path.exists(SOURCE):
         print(f"ERROR: Source deck not found at {SOURCE}")
         print("Copy your deck to source/deck_original.pptx first.")
         return
+
+    print(f"  Validating source/deck_original.pptx before setup...")
+    report = validate_deck(SOURCE)
+    if not report.ok:
+        print(f"\n  ERROR: source deck failed validation — setup aborted.")
+        print(f"  Copying a corrupted source to all workers would spread the problem.")
+        print(f"  Fix these issues first:")
+        for e in report.errors:
+            print(f"    [ERROR] {e}")
+        return
+    print(f"  Validation passed ({report.slide_count} slides, no issues).")
 
     # Warn if any worker files differ from source (possible unmerged work)
     changed = _workers_with_changes()
@@ -864,13 +878,26 @@ def cmd_merge(only_slides=None, from_worker=None):
 def cmd_promote():
     """Promote output/deck_final.pptx to become the new source/deck_original.pptx.
 
+    Validates deck_final.pptx before promoting — refuses if validation fails.
     The old source is backed up as source/deck_original.bak.pptx before overwriting.
     After promoting, run 'setup' to refresh all worker files from the new source.
     """
+    from pptx_safe_ops import validate_deck
+
     final_path = f"{OUTPUT_DIR}/deck_final.pptx"
     if not os.path.exists(final_path):
         print(f"ERROR: {final_path} not found. Run 'merge' first.")
         return
+
+    print(f"  Validating output/deck_final.pptx before promoting...")
+    report = validate_deck(final_path)
+    if not report.ok:
+        print(f"\n  ERROR: deck_final.pptx failed validation — promote aborted.")
+        print(f"  Fix these issues first:")
+        for e in report.errors:
+            print(f"    [ERROR] {e}")
+        return
+    print(f"  Validation passed ({report.slide_count} slides, no issues).")
 
     if os.path.exists(SOURCE):
         backup_path = f"{WORKSPACE}/source/deck_original.bak.pptx"
