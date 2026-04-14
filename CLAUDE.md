@@ -72,6 +72,10 @@ python3 slide_manager.py assign A 4 5 10     # Assign slides to a worker (coordi
 python3 slide_manager.py merge 5 14 21       # Merge ONLY your slides — always pass slide numbers
 ```
 
+**Commands you must NEVER run:**
+- `python3 slide_manager.py reset` — destroys all merged work from every worker. Coordinator only.
+- `python3 slide_manager.py merge` — do not merge at all until the coordinator tells you to.
+
 ---
 
 ## Design Loop (follow for every slide)
@@ -82,9 +86,8 @@ See **BRAND_GUIDE.md** for the full design loop. Summary:
 2. **Write a Design Brief** (layout, reading order, element positions) — no code yet
 3. **Implement** with python-pptx, following the brief
 4. **Re-render**, compare against the brief, iterate until 8/10
-5. **Merge your slides only**: `python3 slide_manager.py merge [your slide numbers]`
 
-Never deliver a slide you haven't visually verified.
+Never deliver a slide you haven't visually verified. When all your slides are done, tell the coordinator — do not merge on your own.
 
 ---
 

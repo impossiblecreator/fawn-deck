@@ -762,6 +762,24 @@ def cmd_reset_output():
     """
     output_path = f"{OUTPUT_DIR}/deck_final.pptx"
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    # Require explicit confirmation — this is a destructive operation
+    if os.path.exists(output_path):
+        print("  WARNING: This will overwrite output/deck_final.pptx with the source deck.")
+        print("  Any slides merged by workers will be lost.")
+        answer = input("  Type 'yes' to confirm: ").strip().lower()
+        if answer != "yes":
+            print("  Aborted.")
+            sys.exit(1)
+
+        # Back up before overwriting
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_dir = f"{WORKSPACE}/output/backups"
+        os.makedirs(backup_dir, exist_ok=True)
+        backup_path = f"{backup_dir}/deck_final_{timestamp}.pptx"
+        shutil.copy2(output_path, backup_path)
+        print(f"  Backed up existing deck_final.pptx → output/backups/deck_final_{timestamp}.pptx")
+
     shutil.copy2(SOURCE, output_path)
     print(f"  Reset output/deck_final.pptx from source.")
 

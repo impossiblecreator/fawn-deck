@@ -21,6 +21,13 @@ python3 slide_manager.py add-slide --after 5 # Insert a blank slide after slide 
 python3 slide_manager.py whoami              # Show this worker's identity and assignments
 ```
 
+```bash
+./launch_workers.sh              # Launch all workers (A, B, C) in new terminal windows
+./launch_workers.sh A B          # Launch specific workers only
+./claude-vm/run-claude.sh        # Launch all workers sandboxed in Docker
+./claude-vm/run-claude.sh A B    # Launch specific workers sandboxed
+```
+
 `add-slide` is blocked if any workers have unsaved changes — merge, promote, and setup first.
 
 ---
