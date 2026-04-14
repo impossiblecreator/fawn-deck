@@ -2,7 +2,7 @@
 
 I was using an AI deck building product and was frustrated with how slow the process was. So, I created an orchestrator that allows me to build slides with three agents at once. Much faster. 
 
-This repo manages conflicts by creating three worker powerpoint decks from a source deck. You assign slides to each worker and work on the slides. When you're done for the time being, you merge the slides into the final deck and then promote the final deck. When you want to start building again, run ```setup``` to reset the worker decks with the final deck.
+This repo manages conflicts by creating three worker powerpoint decks from a source deck. You assign slides to each worker and work on the slides. When you're done for the time being, you merge the slides into the final deck and then promote the final deck. When you want to start building again, run `setup` to reset the worker decks with the current final deck.
 
 If you want to make manual edits, open the worker deck and make the edits yourself. 
 
