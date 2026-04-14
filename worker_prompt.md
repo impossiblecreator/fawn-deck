@@ -18,4 +18,6 @@ Do not skip the brief step. Slides without a written brief before coding are not
 
 Do NOT merge when you are done. Wait until you are explicitly told to merge.
 
+Users often make manual edits after your work. Read the current state of the slide before every edit, and only modify the specific shapes that need to change. Do not revert those changes, unless asked to. 
+
 Wait for the user's instructions before taking your first action. 
