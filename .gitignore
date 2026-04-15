@@ -15,10 +15,21 @@ assignments.json
 .claude/settings.local.json
 
 # Rendered slides (regenerable from pptx)
-renders/
+renders/*
+!renders/.gitkeep
+!renders/worker_A/
+!renders/worker_B/
+!renders/worker_C/
+renders/worker_A/*
+!renders/worker_A/.gitkeep
+renders/worker_B/*
+!renders/worker_B/.gitkeep
+renders/worker_C/*
+!renders/worker_C/.gitkeep
 
 # Images (embedded in deck files)
-images/
+images/*
+!images/.gitkeep
 
 # Design artifacts
 design/
