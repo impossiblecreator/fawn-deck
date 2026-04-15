@@ -1,34 +1,25 @@
 # Fawn Friends Deck — Multi-Worker Slide Design
 
-I was using an AI deck building product and was frustrated with how slow the process was. So, I created an orchestrator that allows me to build slides with three agents at once. Much faster.
+making decks sucks. 
 
----
+I spent hours laboring in PowerPoint, Google Slides. Naturally, I tried an AI tool. 
 
-## Command Reference
+that took forever. every time I asked for an update I had to wait 2 minutes for it to finish, only to have to ask it to move something a little to the left or right and wait another two minutes. It was infuriating.
 
-```bash
-python3 slide_manager.py status              # All slide assignments and worker files
-python3 slide_manager.py assign A 1 2 3      # Assign slides to a worker
-python3 slide_manager.py unassign A 10       # Remove a slide assignment
-python3 slide_manager.py merge               # Merge all assigned slides
-python3 slide_manager.py merge 5 8 14        # Merge specific slides only
-python3 slide_manager.py promote             # Promote final deck to source (validates first)
-python3 slide_manager.py setup               # Refresh worker files from source (validates first)
-python3 slide_manager.py render A            # Render Worker A's slides to PNG (opens Finder)
-python3 slide_manager.py validate            # Manually validate output/deck_final.pptx
-python3 slide_manager.py add-slide           # Append a blank slide to all files
-python3 slide_manager.py add-slide --after 5 # Insert a blank slide after slide 5
-python3 slide_manager.py whoami              # Show this worker's identity and assignments
-```
+the in-browser slide builder was so much worse that PowerPoint. Essentially useless. 
 
-```bash
-./launch_workers.sh              # Launch all workers (A, B, C) in new terminal windows
-./launch_workers.sh A B          # Launch specific workers only
-./claude-vm/run-claude.sh        # Launch all workers sandboxed in Docker
-./claude-vm/run-claude.sh A B    # Launch specific workers sandboxed
-```
+so, I built my own. 
 
-`add-slide` is blocked if any workers have unsaved changes — merge, promote, and setup first.
+with this deck builder, I can fire up three separate agents building slides simultaneously then merge them back together with no conflicts. 
+
+the agents make changes, view the slides to see their work, and iterate until they are happy with the outcome. Then, they ask me to check their work. 
+
+if I want to edit manually, I open the file in PowerPoint and make the change. 
+
+I've found this workflow much faster. 
+
+it's code-lite. You need to know your way around terminal. But otherwise, it's easy to use. 
+
 
 ---
 
@@ -189,3 +180,31 @@ fawn-deck/
 └── output/
     └── deck_final.pptx    # Merged result
 ```
+
+---
+
+## Command Reference
+
+```bash
+python3 slide_manager.py status              # All slide assignments and worker files
+python3 slide_manager.py assign A 1 2 3      # Assign slides to a worker
+python3 slide_manager.py unassign A 10       # Remove a slide assignment
+python3 slide_manager.py merge               # Merge all assigned slides
+python3 slide_manager.py merge 5 8 14        # Merge specific slides only
+python3 slide_manager.py promote             # Promote final deck to source (validates first)
+python3 slide_manager.py setup               # Refresh worker files from source (validates first)
+python3 slide_manager.py render A            # Render Worker A's slides to PNG (opens Finder)
+python3 slide_manager.py validate            # Manually validate output/deck_final.pptx
+python3 slide_manager.py add-slide           # Append a blank slide to all files
+python3 slide_manager.py add-slide --after 5 # Insert a blank slide after slide 5
+python3 slide_manager.py whoami              # Show this worker's identity and assignments
+```
+
+```bash
+./launch_workers.sh              # Launch all workers (A, B, C) in new terminal windows
+./launch_workers.sh A B          # Launch specific workers only
+./claude-vm/run-claude.sh        # Launch all workers sandboxed in Docker
+./claude-vm/run-claude.sh A B    # Launch specific workers sandboxed
+```
+
+`add-slide` is blocked if any workers have unsaved changes — merge, promote, and setup first.
