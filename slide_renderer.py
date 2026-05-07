@@ -14,6 +14,7 @@ import subprocess
 import os
 import shutil
 import tempfile
+import time
 from pathlib import Path
 
 
@@ -50,6 +51,39 @@ def _has_tool(name):
     return shutil.which(name) is not None
 
 
+class _RenderLock:
+    """Simple cross-process lock so concurrent workers do not collide in LibreOffice."""
+
+    def __init__(self, lock_path, timeout=180):
+        self.lock_path = lock_path
+        self.timeout = timeout
+        self.fd = None
+
+    def __enter__(self):
+        start = time.time()
+        while True:
+            try:
+                self.fd = os.open(self.lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                os.write(self.fd, str(os.getpid()).encode("ascii"))
+                return self
+            except FileExistsError:
+                if time.time() - start > self.timeout:
+                    raise RuntimeError(
+                        f"Timed out waiting for LibreOffice render lock: {self.lock_path}\n"
+                        "Another worker may be stuck rendering. Check with: pgrep -fl soffice"
+                    )
+                print("  LibreOffice render lock is busy — waiting 5s...")
+                time.sleep(5)
+
+    def __exit__(self, exc_type, exc, tb):
+        if self.fd is not None:
+            os.close(self.fd)
+        try:
+            os.unlink(self.lock_path)
+        except FileNotFoundError:
+            pass
+
+
 def _pdf_page_for_slide(pptx_path, slide_num):
     """Return the PDF page number that corresponds to a 1-indexed PPTX slide number.
 
@@ -75,40 +109,47 @@ def _render_with_libreoffice(pptx_path, slide_num, output_path):
     # Account for hidden slides: LibreOffice omits them from the PDF
     pdf_page = _pdf_page_for_slide(pptx_path, slide_num)
 
+    workspace = Path(__file__).parent
+    lock_path = str(workspace / ".render_libreoffice.lock")
+
     with tempfile.TemporaryDirectory() as tmpdir:
         # Step 1: PPTX → PDF via LibreOffice
+        # Use a throwaway user profile so a user's normal LibreOffice crash
+        # recovery state cannot block or crash headless renders.
+        profile_dir = os.path.join(tmpdir, "lo-profile")
+        profile_uri = Path(profile_dir).resolve().as_uri()
         # --norestore prevents LibreOffice from blocking on a crash-recovery dialog.
-        # LibreOffice only allows one instance at a time, so if another worker is
-        # rendering concurrently we wait and retry rather than killing their process.
-        import time
-        max_attempts = 6
-        wait_seconds = 10
-        result = None
-        for attempt in range(1, max_attempts + 1):
-            # Check if LibreOffice is running (skip if pgrep unavailable)
-            if _has_tool("pgrep"):
-                check = subprocess.run(["pgrep", "-x", "soffice"], capture_output=True)
-                if check.returncode == 0:
-                    print(f"  LibreOffice busy (another worker rendering) — waiting {wait_seconds}s... (attempt {attempt}/{max_attempts})")
-                    time.sleep(wait_seconds)
-                    continue
+        with _RenderLock(lock_path):
             result = subprocess.run(
-                ["soffice", "--headless", "--norestore", "--convert-to", "pdf",
-                 "--outdir", tmpdir, os.path.abspath(pptx_path)],
-                capture_output=True, text=True, timeout=120
-            )
-            break
-        else:
-            raise RuntimeError(
-                f"LibreOffice is still busy after {max_attempts} attempts (~{max_attempts * wait_seconds}s).\n"
-                "Another worker may be stuck. Check with: pgrep soffice"
+                [
+                    "soffice",
+                    "--headless",
+                    "--norestore",
+                    "--nolockcheck",
+                    f"-env:UserInstallation={profile_uri}",
+                    "--convert-to",
+                    "pdf",
+                    "--outdir",
+                    tmpdir,
+                    os.path.abspath(pptx_path),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=180,
             )
 
         pdf_name = Path(pptx_path).stem + ".pdf"
         pdf_path = os.path.join(tmpdir, pdf_name)
 
-        if not os.path.exists(pdf_path):
-            raise RuntimeError(f"LibreOffice produced no PDF. stderr: {result.stderr}")
+        if result.returncode != 0 or not os.path.exists(pdf_path):
+            details = "\n".join(
+                part for part in [
+                    f"returncode: {result.returncode}",
+                    f"stdout: {result.stdout.strip()}" if result.stdout else "",
+                    f"stderr: {result.stderr.strip()}" if result.stderr else "",
+                ] if part
+            )
+            raise RuntimeError(f"LibreOffice produced no PDF.\n{details}")
 
         # Step 2: Extract the correct page as PNG via pdftoppm
         out_prefix = os.path.join(tmpdir, "slide")

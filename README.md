@@ -46,8 +46,8 @@ python3 slide_manager.py assign C 9 10 11 12
 
 **Launch** — You start the three AI workers. Each one reads your brand guide and slide assignments, then gets to work on its own copy of the deck.
 ```bash
-./launch_workers.sh          # local
-./claude-vm/run-claude.sh    # sandboxed in Docker
+./launch_codex_workers.sh    # local Codex
+./codex-vm/run-codex.sh      # Codex sandboxed in Docker
 ```
 
 **Merge** — When the workers are done, you merge their slides back into the output deck. The system validates the result automatically — if anything is broken, the merge is blocked and you get a clear error message. The worker files are never touched by a merge, so you can fix and re-merge safely.
@@ -97,15 +97,25 @@ python3 slide_manager.py assign C 9 10 11 12
 This opens terminal tabs and starts the AI workers — one per worker ID. Each worker reads the brand guide and their assignments, then edits only their own slides in their own file.
 
 ```bash
-./launch_workers.sh          # Launch all workers (A, B, C)
-./launch_workers.sh A B      # Launch specific workers only
+./launch_codex_workers.sh          # Launch all workers with Codex (A, B, C)
+./launch_codex_workers.sh A B      # Launch specific Codex workers only
+./launch_workers.sh --agent codex  # Same thing, via the generic launcher
+```
+
+Claude Code is still supported:
+
+```bash
+./launch_workers.sh --agent claude      # Launch all workers with Claude Code
+./launch_workers.sh --agent claude A B  # Launch specific Claude workers only
 ```
 
 For a sandboxed option where each worker runs in an isolated Docker container and physically cannot access anything outside the project folder:
 
 ```bash
-./claude-vm/run-claude.sh        # Launch all workers sandboxed
-./claude-vm/run-claude.sh A B    # Launch specific workers sandboxed
+./codex-vm/run-codex.sh          # Launch all Codex workers sandboxed
+./codex-vm/run-codex.sh A B      # Launch specific Codex workers sandboxed
+./claude-vm/run-claude.sh        # Launch all Claude workers sandboxed
+./claude-vm/run-claude.sh A B    # Launch specific Claude workers sandboxed
 ```
 
 **3. Merge when workers are done**
@@ -142,6 +152,20 @@ python3 slide_manager.py setup
 pip install -r requirements.txt
 ```
 
+The local launch scripts also bootstrap a repo-local `.venv` automatically if
+the active Python cannot import `python-pptx`.
+
+**AI worker CLI:**
+```bash
+npm install -g @openai/codex
+codex login
+```
+
+Claude Code is optional if you want to keep using the legacy Claude launcher:
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
 **System dependencies:**
 - [LibreOffice](https://www.libreoffice.org/) — renders slides to PNG
 - `pdftoppm` (from [Poppler](https://poppler.freedesktop.org/)) — part of the render pipeline
@@ -158,10 +182,15 @@ brew install poppler
 
 ```
 fawn-deck/
-├── launch_workers.sh      # Launch workers locally (no sandbox)
+├── launch_codex_workers.sh # Launch Codex workers locally (no sandbox)
+├── launch_workers.sh      # Generic local launcher: --agent codex or --agent claude
 ├── worker_prompt.md       # Initial prompt sent to each worker
+├── AGENTS.md              # Codex worker instructions
+├── CLAUDE.md              # Claude Code worker instructions
+├── codex-vm/
+│   └── run-codex.sh       # Launch Codex workers in Docker (sandboxed)
 ├── claude-vm/
-│   └── run-claude.sh      # Launch workers in Docker (sandboxed)
+│   └── run-claude.sh      # Launch Claude workers in Docker (sandboxed)
 ├── slide_manager.py       # Coordination tool
 ├── slide_renderer.py      # PNG renderer
 ├── pptx_safe_ops.py       # Validation and rollback pipeline
@@ -201,10 +230,14 @@ python3 slide_manager.py whoami              # Show this worker's identity and a
 ```
 
 ```bash
-./launch_workers.sh              # Launch all workers (A, B, C) in new terminal windows
-./launch_workers.sh A B          # Launch specific workers only
-./claude-vm/run-claude.sh        # Launch all workers sandboxed in Docker
-./claude-vm/run-claude.sh A B    # Launch specific workers sandboxed
+./launch_codex_workers.sh          # Launch all Codex workers (A, B, C)
+./launch_codex_workers.sh A B      # Launch specific Codex workers only
+./launch_workers.sh --agent codex  # Launch all Codex workers via generic launcher
+./launch_workers.sh --agent claude # Launch all Claude workers via generic launcher
+./codex-vm/run-codex.sh            # Launch all Codex workers sandboxed in Docker
+./codex-vm/run-codex.sh A B        # Launch specific Codex workers sandboxed
+./claude-vm/run-claude.sh          # Launch all Claude workers sandboxed in Docker
+./claude-vm/run-claude.sh A B      # Launch specific Claude workers sandboxed
 ```
 
 `add-slide` is blocked if any workers have unsaved changes — merge, promote, and setup first.

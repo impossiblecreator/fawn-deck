@@ -940,10 +940,13 @@ def cmd_whoami():
     if not worker_id:
         print("  ERROR: WORKER_ID environment variable is not set.")
         print()
-        print("  Start Claude Code with your worker ID, e.g.:")
+        print("  Start an AI worker with your worker ID, e.g.:")
+        print("    WORKER_ID=A codex --cd . --sandbox danger-full-access --ask-for-approval never")
         print("    WORKER_ID=A claude --dangerously-skip-permissions")
-        print("    WORKER_ID=B claude --dangerously-skip-permissions")
-        print("    WORKER_ID=C claude --dangerously-skip-permissions")
+        print()
+        print("  Or use the launch scripts:")
+        print("    ./launch_codex_workers.sh A")
+        print("    ./launch_workers.sh --agent claude A")
         sys.exit(1)
 
     if worker_id not in WORKER_NAMES:
